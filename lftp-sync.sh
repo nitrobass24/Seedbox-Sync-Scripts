@@ -8,8 +8,8 @@ port='22'
 remote_dir='~/downloads/completed'
 local_dir='/volume1/downloads/sync'
 nfile='2' # Number of files to download simultaneously
-nsegment='30' # Number of segments/parts to split the downloads into
-minchunk='1' # Minimum size each chunk (part) should be
+nsegment='4' # Number of segments/parts to split the downloads into
+minchunk='1M' # Minimum size each chunk (part) should be
 
 #set binary paths
 lftp=`which lftp`
@@ -33,6 +33,7 @@ else
 	set sftp:auto-confirm yes
 	set pget:min-chunk-size ${minchunk}
 	set pget:default-n ${nsegment}
+	set cmd:queue-parallel ${nfile}
 	set mirror:use-pget-n ${nsegment}
 	set mirror:parallel-transfer-count ${nfile}
 	set mirror:parallel-directories yes
@@ -41,10 +42,6 @@ else
 	mirror -c -v --loop --Remove-source-dirs "${remote_dir}_lftp" "${local_dir}"
 	quit
 EOF
-#	rm -f "${lock_file}"
-#	trap - SIGINT SIGTERM
-#	echo "${0} Finished at $(date)"
-#	exit
 fi
 
 #Logic for extracting downloads
