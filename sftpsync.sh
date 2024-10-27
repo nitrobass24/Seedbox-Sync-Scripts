@@ -2,7 +2,7 @@
 
 set -x
 login='nitrobass24'
-pass='6GM3jtjD0JSqWT9'
+pass=''
 host='white.seedhost.eu'
 port='22'
 remote_dir='~/downloads/completed'
