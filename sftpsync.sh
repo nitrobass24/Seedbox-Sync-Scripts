@@ -9,9 +9,9 @@ remote_dir='~/downloads/completed'
 local_dir='/ssdpool/sftpsync'
 final_dir='/mnt/Home_Data/Downloads/Import'
 temp_extract_dir='/pool2/unrar_tmp'
-nfile='10'
+nfile='15'
 nsegment='50'
-minchunk='5M'
+minchunk='250M'
 
 base_name="$(basename "$0")"
 lock_file="/tmp/${base_name}.lock"
@@ -25,6 +25,7 @@ else
     ionice -c 2 -n 0 nice -n 10 /usr/bin/lftp -p "${port}" -u "${login},${pass}" sftp://"${host}" << EOF
         mv "${remote_dir}" "${remote_dir}_lftp"
         mkdir -p "${remote_dir}"
+        set net:socket-buffer 33554432  # 32MB socket buffer
         set ftp:list-options -a
         set sftp:auto-confirm yes
         set pget:min-chunk-size ${minchunk}
@@ -39,10 +40,16 @@ else
 EOF
 fi
 
+# Move single non-RAR files directly in local_dir to final_dir
+find "$local_dir" -mindepth 1 -maxdepth 1 -type f ! -name "*.rar" -print0 | while IFS= read -r -d '' file; do
+    rsync -a --no-perms --no-owner --no-group --inplace "$file" "$final_dir/"
+    rm -f "$file"
+done
+
 # Check if there are directories or files to process before proceeding
 if [ -n "$(find "$local_dir" -mindepth 1 -maxdepth 1)" ]; then
     # Find all directories in the local directory
-    find "$local_dir" -mindepth 1 -maxdepth 1 -type d | xargs -P 2 -I {} bash -c '
+    find "$local_dir" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -P 2 -I {} bash -c '
         dir="{}"
         base_name=$(basename "$dir")
         temp_subdir="'$temp_extract_dir'/$base_name"
@@ -61,13 +68,13 @@ if [ -n "$(find "$local_dir" -mindepth 1 -maxdepth 1)" ]; then
         # Extract RAR files if found
         if [ "$rar_files_found" = true ]; then
             find "$dir" -type f -name "*.rar" | while read -r rar_file; do
-                ionice -c 2 -n 0 unrar x -o- "$rar_file" "$temp_subdir"
+                ionice -c 2 -n 0 unrar x -mt "$rar_file" "$temp_subdir"
             done
             # Move extracted files to the final destination
-            rsync -a --no-perms --no-owner --no-group "$temp_subdir/" "$dest_dir/"
+            rsync -a --no-perms --no-owner --no-group --inplace "$temp_subdir/" "$dest_dir/"
         else
             # Move the entire folder content directly to the destination if no RARs are present
-            rsync -a --no-perms --no-owner --no-group "$dir/" "$dest_dir/"
+            rsync -a --no-perms --no-owner --no-group --inplace "$dir/" "$dest_dir/"
         fi
 
         # Clean up the temporary files and the original directory
