@@ -1,5 +1,26 @@
 #!/bin/bash
 
+# Lockfile path
+LOCKFILE="/tmp/$(basename "$0").lock"
+# Define the maximum execution time in seconds (1 hour)
+MAX_RUNTIME=$((60 * 60))
+# Track the script's start time
+START_TIME=$(date +%s)
+
+# Cleanup function to remove the lock file on exit
+cleanup() {
+    rm -f "$LOCKFILE"
+}
+trap cleanup EXIT SIGINT SIGTERM
+
+# Ensure only one instance is running
+if [ -f "$LOCKFILE" ]; then
+    echo "Another instance of the script is already running. Exiting."
+    exit 1
+else
+    echo $$ > "$LOCKFILE"
+fi
+
 # Source .bashrc to load your environment variables
 source ~/.bashrc
 
